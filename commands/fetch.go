@@ -6,6 +6,7 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net/url"
@@ -28,8 +29,23 @@ var fetchCmd = &cobra.Command{
 }
 
 type Config struct {
-	Feeds []string
+	Feeds string
 	Port  int
+}
+
+func (c Config) AllFeeds() ([]string, error) {
+	file, err := os.Open(c.Feeds)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var feeds []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		feeds = append(feeds, scanner.Text())
+	}
+	return feeds, scanner.Err()
 }
 
 type Itm struct {
@@ -103,9 +119,16 @@ func Fetcher() {
 
 	if err := viper.Marshal(&config); err != nil {
 		fmt.Println(err)
+		return
 	}
 
-	for _, feed := range config.Feeds {
+	feeds, err := config.AllFeeds()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, feed := range feeds {
 		go PollFeed(feed)
 	}
 }
